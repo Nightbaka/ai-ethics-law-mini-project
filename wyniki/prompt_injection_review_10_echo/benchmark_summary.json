@@ -1,0 +1,8 @@
+{
+  "total_examples": 10,
+  "mean_response_length": 358.1,
+  "injection_signal_rate": 1.0,
+  "command_signal_rate": 0.0,
+  "pii_signal_rate": 0.0,
+  "response_rejection_rate": 0.0
+}
