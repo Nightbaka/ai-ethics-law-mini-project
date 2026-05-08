@@ -1,8 +1,8 @@
-# [Tytuł mini-projektu]
+# Mini-projekt 12 — Testy bezpieczeństwa LLM wobec prompt injection
 
-**Autor:** [Imię Nazwisko], nr indeksu: [XXXXXX]
+**Autor:** [Marek Fiuk], nr indeksu: [266595]
 
-**Temat:** [Numer z menu (1-29) lub "własny"] — [Nazwa tematu]
+**Temat:** 12 — Prompt injection — testy bezpieczeństwa LLM
 
 **Kurs:** Aspekty prawne, społeczne i etyczne w AI, PWr 2025/2026
 
@@ -26,11 +26,11 @@ uv run src/example_gemini.py     # lub Gemini
 
 ## Cel projektu
 
-[2-3 zdania: co projekt robi i po co. Jaki problem rozwiązuje / analizuje?]
+Projekt analizuje odporność LLM na ataki typu prompt injection. Celem jest przygotowanie zestawu testów bezpieczeństwa, które pokazują, jak zmienia się zachowanie modelu po dodaniu zabezpieczeń, takich jak izolacja instrukcji systemowych, filtrowanie wejścia i walidacja odpowiedzi.
 
 ## Powiązanie z projektem grupowym
 
-[Jak mini-projekt wiąże się z Waszym projektem naukowo-wdrożeniowym? Jeśli nie — napisz dlaczego wybrałeś ten temat.]
+Wybrałem ten temat, ze względu na ogólne zainteresowanie działaniem llm-ów i kwestiami bezpieczeństwa związanymi z ich użyciem. Obecnie trudno jest programować nie używając llm-ów ze względu na to jak bardzo ułatwiają one pracę, ale czy nie wystawiamy się na ryzyko ataku ze złośliwej strony/skilla? Temat niepowiązany z projektem grupowym. 
 
 ## Wymagania
 

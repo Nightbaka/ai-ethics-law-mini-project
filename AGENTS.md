@@ -13,6 +13,21 @@ Mini-projekt jest powiązany z tematyką kursu: prawo (RODO, AI Act, IP), etyka 
 ## Język
 
 Cała dokumentacja, komentarze w kodzie i komunikacja — **po polsku**.
+Kod - english (np. nazwy funkcji, zmiennych) — dowolny, ale komentarze i markdown po polsku.
+
+## Szybkie komendy
+
+```bash
+uv sync
+uv sync --extra notebooks
+uv run src/example_openai.py
+```
+
+## Kluczowe pliki
+
+- [README.md](README.md) — wymagane sekcje, uruchomienie, wnioski
+- [PROCESS.md](PROCESS.md) — prompty, decyzje, błędy, iteracje (bez outputu AI)
+- [.claude/CLAUDE.md](.claude/CLAUDE.md) — zasady kursu i praca z AI
 
 ## Struktura repozytorium
 
