@@ -62,6 +62,18 @@ uv run src/main.py
 
 # lub notebook
 uv run jupyter notebook notebooks/analiza.ipynb
+
+# benchmark prompt injection
+uv run src/run_prompt_injection.py --limit 100 --model-kind echo --local-cache data/train.parquet
+
+# pierwszy lokalny model na GPU 8 GB
+uv run src/run_prompt_injection.py --limit 20 --model-kind transformers --model-preset first-local --local-cache data/train.parquet
+
+# alternatywa: Qwen 1.5B, nadal lekki lokalny model
+uv run src/run_prompt_injection.py --limit 20 --model-kind transformers --model-preset qwen2-5-1-5b --local-cache data/train.parquet
+
+# mocniejszy model lokalny po weryfikacji pamięci
+uv run src/run_prompt_injection.py --limit 20 --model-kind transformers --model-preset mistral-7b --load-in-4bit --local-cache data/train.parquet
 ```
 
 ## Wyniki

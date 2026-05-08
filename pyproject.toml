@@ -11,10 +11,19 @@ dependencies = [
     "python-dotenv>=1.1",
     "pandas>=2.2",
     "matplotlib>=3.9",
+    "huggingface-hub>=1.14.0",
+    "datasets>=3.5.0",
+    "transformers>=4.53.0",
+    "accelerate>=1.7.0",
+    "jupyter>=1.1.1",
+    "pyarrow>=24.0.0",
 ]
 
 [project.optional-dependencies]
 notebooks = [
     "jupyter>=1.0",
     "ipykernel>=6.29",
+]
+gpu = [
+    "bitsandbytes>=0.43.0",
 ]
