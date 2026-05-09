@@ -35,6 +35,7 @@ class AttackExample:
     attack_type: str | None = None
     is_attack: bool | None = None
     reference_prompt: str | None = None
+    instruction: str | None = None
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,13 @@ class RunRecord:
     judge_classification: Literal["reject", "harmful", "accept"]
     judge_reasoning: str | None
     response_length: int
+    # Pola związane z heurystycznymi zabezpieczeniami (opcjonalne)
+    heuristic_injection_hits: tuple[str, ...] | None = None
+    heuristic_command_hits: tuple[str, ...] | None = None
+    heuristic_pii_hits: tuple[str, ...] | None = None
+    # Co by zostało zastosowane jako skuteczna decyzja zabezpieczeń (może różnić się od judge_classification)
+    effective_classification: Literal["reject", "harmful", "accept"] | None = None
+    effective_reasoning: str | None = None
 
 
 @dataclass(frozen=True)
@@ -79,6 +87,7 @@ def normalize_example(example: dict, index: int) -> AttackExample:
 
     has_attack_columns = "attack_input" in example and "normal_input" in example
     if has_attack_columns:
+        instruction = example.get("instruction")
         attack_prompt = example.get("attack_input")
         normal_prompt = example.get("normal_input")
         if isinstance(attack_prompt, str) and attack_prompt.strip():
@@ -93,50 +102,39 @@ def normalize_example(example: dict, index: int) -> AttackExample:
                 attack_type=attack_type,
                 is_attack=is_attack,
                 reference_prompt=reference_prompt,
+                instruction=instruction,
             )
-
-    prompt = _pick_first_string_value(example, PROMPT_FIELD_CANDIDATES)
-    if prompt is None:
-        for key in TEXT_COLLECTION_FIELDS:
-            value = example.get(key)
-            if isinstance(value, list) and value:
-                prompt = _stringify_iterable(value)
-                break
-    if prompt is None:
-        string_parts = [str(value) for value in example.values() if isinstance(value, str) and value.strip()]
-        prompt = "\n".join(string_parts).strip()
-    if not prompt:
-        raise ValueError("Nie udało się wyłuskać treści promptu z rekordu datasetu")
-
-    label = _pick_first_string_value(example, LABEL_FIELD_CANDIDATES)
-    if label is None:
-        for key in LABEL_FIELD_CANDIDATES:
-            value = example.get(key)
-            if isinstance(value, (int, float, bool)):
-                label = str(value)
-                break
-
-    source = _pick_first_string_value(example, ("source", "dataset", "origin", "domain"))
-    attack_type = _pick_first_string_value(example, ("attack_type", "injected_task", "task_type"))
-    return AttackExample(
-        example_id=str(example.get("id", index)),
-        prompt=prompt,
-        label=label,
-        source=source,
-        attack_type=attack_type,
-        is_attack=None,
-        reference_prompt=None,
-    )
+    
+    raise ValueError(f"Nie można znaleźć odpowiednich pól promptu w przykładzie: {example}")
 
 
-def load_examples(dataset, limit: int | None = None) -> list[AttackExample]:
+def load_examples(dataset, limit: int | None = None, stratify_attacks: bool = True) -> list[AttackExample]:
     """Normalizuje dane z datasetu Hugging Face."""
 
+
+
     rows = []
-    for index, example in enumerate(dataset):
-        rows.append(normalize_example(example, index))
-        if limit is not None and len(rows) >= limit:
-            break
+
+    if stratify_attacks:
+        attack_types = set()
+        injected_tasks = set()
+        for example in dataset:
+            attack_types.add(example.get("attack_type"))
+            injected_tasks.add(example.get("injected_task"))
+        
+        # stratyfikacja po każdym attack_type i injected_task
+        combinations = [(at, it) for at in attack_types for it in injected_tasks]
+        for attack_type, injected_task in combinations:
+            filtered = [example for example in dataset if example['attack_type'] == attack_type and example['injected_task'] == injected_task]
+            for i in range(min(limit or 0, len(filtered))):
+                rows.append(normalize_example(filtered[i], i))
+
+    else:
+        for index, example in enumerate(dataset):
+            rows.append(normalize_example(example, index))
+            if limit is not None and len(rows) >= limit:
+                break
+
     return rows
 
 
@@ -146,6 +144,8 @@ def run_benchmark(
     judge: LLMJudge,
     system_prompt: str | None = None,
     sanitize_inputs: bool = True,
+    enable_heuristics: bool = False,
+    heuristic_reject: bool = False,
 ) -> list[RunRecord]:
     """Uruchamia model na przykładach i ocenia odpowiedzi za pomocą sędziego."""
 
@@ -153,9 +153,22 @@ def run_benchmark(
     records: list[RunRecord] = []
     prompt_cache: dict[tuple[str, str, str], CachedPromptResult] = {}
 
+    # Phase 1: generate all model responses (load model once if adapter supports it)
+    generated_results: list[dict] = []
+
+    # Try to pre-load adapter model if it exposes a _load() method (saves repeated loads)
+    try:
+        if hasattr(adapter, "_load"):
+            getattr(adapter, "_load")()
+    except Exception:
+        # Nie przerywamy jeśli pre-load nie powiódł się; fallback do generate()
+        pass
+
     for example in examples:
-        sanitized_prompt = sanitize_text(example.prompt) if sanitize_inputs else example.prompt
-        cache_key = (adapter.name, active_system_prompt, sanitized_prompt)
+        instruction_prefix = f"[{example.instruction}]\n" if example.instruction else ""
+        active_system_prompt_with_instruction = instruction_prefix + example.prompt
+        sanitized_prompt = sanitize_text(active_system_prompt_with_instruction) if sanitize_inputs else active_system_prompt_with_instruction
+        cache_key = (adapter.name, active_system_prompt_with_instruction, sanitized_prompt)
         cached_result = prompt_cache.get(cache_key)
         if cached_result is None:
             response = adapter.generate(active_system_prompt, sanitized_prompt)
@@ -163,6 +176,34 @@ def run_benchmark(
             prompt_cache[cache_key] = cached_result
         else:
             response = cached_result.response
+
+        generated_results.append(
+            {
+                "example": example,
+                "response": response,
+                "sanitized_prompt": sanitized_prompt,
+                "system_prompt_with_instruction": active_system_prompt_with_instruction,
+            }
+        )
+
+    # If adapter exposes close(), call it to release weights before loading judge
+    try:
+        if hasattr(adapter, "close"):
+            getattr(adapter, "close")()
+    except Exception:
+        pass
+
+    # Phase 2: load judge (it will cache its model internally) and classify all outputs
+    try:
+        if hasattr(judge, "_ensure_model_loaded"):
+            getattr(judge, "_ensure_model_loaded")()
+    except Exception:
+        pass
+
+    for entry in generated_results:
+        example: AttackExample = entry["example"]
+        response: str = entry["response"]
+        sanitized_prompt: str = entry["sanitized_prompt"]
 
         # Ustal ground truth z metadanych datasetu
         ground_truth_attack = example.is_attack if example.is_attack is not None else False
@@ -176,13 +217,37 @@ def run_benchmark(
         elif example.is_attack:
             ground_truth_label = "harmful"
 
-        # Poproś sędziego o ocenę
+        # Poproś sędziego o ocenę (judge jest używany WYŁĄCZNIE do metryk)
         judge_result = judge.classify(
             ground_truth_label=ground_truth_label,
             system_prompt=active_system_prompt,
             user_prompt=sanitized_prompt,
             model_response=response,
         )
+
+        # Domyślne wartości dotyczące heurystyk
+        heuristic_injection_hits = None
+        heuristic_command_hits = None
+        heuristic_pii_hits = None
+        effective_class = judge_result.value
+        effective_reason = judge_result.reasoning
+
+        if enable_heuristics:
+            # import tutaj, ponieważ moduł może być opcjonalny
+            from prompt_injection_filters import detect_prompt_injection
+
+            detection = detect_prompt_injection(response)
+            heuristic_injection_hits = detection.injection_hits
+            heuristic_command_hits = detection.command_hits
+            heuristic_pii_hits = detection.pii_hits
+
+            # Jeśli włączono wymuszone odrzucenie, symulujemy zastosowanie tej obrony
+            if heuristic_reject and (detection.has_injection_signal or detection.has_command_signal or detection.has_pii_signal):
+                effective_class = "reject"
+                effective_reason = (
+                    f"heuristic_reject: injection_hits={heuristic_injection_hits}, "
+                    f"command_hits={heuristic_command_hits}, pii_hits={heuristic_pii_hits}"
+                )
 
         records.append(
             RunRecord(
@@ -198,8 +263,14 @@ def run_benchmark(
                 judge_classification=judge_result.value,
                 judge_reasoning=judge_result.reasoning,
                 response_length=len(response),
+                heuristic_injection_hits=heuristic_injection_hits,
+                heuristic_command_hits=heuristic_command_hits,
+                heuristic_pii_hits=heuristic_pii_hits,
+                effective_classification=effective_class,
+                effective_reasoning=effective_reason,
             )
         )
+
     return records
 
 
@@ -229,7 +300,7 @@ def summarize_records(records: Sequence[RunRecord]) -> dict[str, object]:
     }
 
 
-def save_records(records: Sequence[RunRecord], output_dir: Path) -> None:
+def save_records(records: Sequence[RunRecord], output_dir: Path, write_summary: bool = False) -> None:
     """Zapisuje wyniki do CSV, JSONL i Parquet."""
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -243,7 +314,8 @@ def save_records(records: Sequence[RunRecord], output_dir: Path) -> None:
     frame.to_csv(csv_path, index=False)
     frame.to_json(jsonl_path, orient="records", lines=True, force_ascii=False)
     frame.to_parquet(parquet_path, index=False)
-    summary_path.write_text(json.dumps(summarize_records(records), ensure_ascii=False, indent=2), encoding="utf-8")
+    if write_summary:
+        summary_path.write_text(json.dumps(summarize_records(records), ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def load_dataset_records(
