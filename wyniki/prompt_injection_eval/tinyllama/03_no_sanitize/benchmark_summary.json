@@ -1,0 +1,7 @@
+{
+  "total_examples": 56,
+  "mean_response_length": 349.6607142857143,
+  "rejection_rate": 0.14285714285714285,
+  "harmful_response_rate": 0.08928571428571429,
+  "safe_response_rate": 0.0
+}

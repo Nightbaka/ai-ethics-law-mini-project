@@ -57,12 +57,6 @@ cp .env.example .env
 ## Uruchomienie
 
 ```bash
-# Główny skrypt (zamień na swój po implementacji)
-uv run src/main.py
-
-# lub notebook
-uv run jupyter notebook notebooks/analiza.ipynb
-
 # benchmark prompt injection
 uv run src/run_prompt_injection.py --limit 100 --model-kind echo --local-cache data/train.parquet
 
@@ -83,14 +77,31 @@ uv run src/run_exp.py
 
 [Najważniejsze wyniki — tabelki, wykresy, liczby. Wstaw bezpośrednio lub linkuj do plików w `wyniki/`.]
 
+### Użycie modelu sędziego do wykrywania przekroczenia zabezpieczeń
+Skuteczne zaimplementowanie sędziego wymagało dostrajania prompta do konkretnego modelu - na początku tinyllm odmawiał klasyfikacji. Następnie kiedy próbowałem zmienić sędziego na lepszy(w moim mniemaniu) model qwen3-1-7b, okazało się że jest niemożliwe, gdyż każdą odpowiedź klasyfikował jako szkodliwą. Ze względu na ograniczenia czasowe i zasobowe, ostatecznie zdecydowałem się na TinyLlama jako sędziego, ale nie jest to rozwiązanie idealne patrząc na przykładowe wyjście ![klasyfikacji](wyniki/final/sedzia.png).
+
+### Usunięcie defensywnego prompta ostrzegającego model, przed atakiem nie przyniosło jednoznacznie lepszych wyników.
+
+Dodanie prostego prompta systemowego, który instruuje model, aby nie wykonywał poleceń z promptów użytkownika, miało różne działanie w zalezności od modelu. W przypadku gemmy wywołało odwrotny efekt od spodziewanego - zmniejszyło liczbę odmów na szkodliwe prompty. Natomiast w przypadku tinyllamy, Zarówno liczba odmów i szkodliwych wyjść zwiększyła się.
+![defensive prompt](wyniki/final/system.png)
+
+### Różne modele są podatne na różne ataki, a qwen jest najbardziej podatny
+
+![Procent szkodliwych odpowiedzi z podziałem na modele i sposób ataku](wyniki/final/qwen_vulnerable.png)
+
+Qwen udzielił najwięcej szkodliwych odpowiedzi a co więcej ani razu jej nie odmówił. Może to wynikać z braku treningu do odmawiania na szkodliwe zapytanie.
+
+![Qwen nie odmawia](wyniki/final/qwen_refusal.png)
+
 ## Wnioski merytoryczne
 
 [Kluczowa sekcja — co wynika z analizy w kontekście prawa / etyki / regulacji AI? Konkretne obserwacje i rekomendacje.]
+Qwen 1.7B nie nadaje się do użycia w środowisku w którym istnieje ryzyko ataku prompt injection, nawet z prostymi zabezpieczeniami, otwieramy się w ten samy na cyberatak. Ogólnie modele są mało odporne i żadnego nie udało mi się w pęłni zabezpieczyć, co podkreśla wagę monitorowania działań modeli i ograniczania ich systemów do dostępu do niesprawdzonych źródeł. Przed używaniem jakiegokolwiek modelu należałoby zbadać jak reaguje na takie problemy wstrzyknięcia złośliwej instrukcji, gdyż nawet w wewnętrznych źródłach danych mogą się znaleźć zanieczyszczone dane, które mogą spowodować niepożądane zachowanie modelu.
 
 ## Ograniczenia
 
-[Czego projekt nie robi? Co można by rozszerzyć? Bądź uczciwy.]
+Model sędziego jest najsłabszym modelem ze wszystkich, co wpływa na wiarygodność klasyfikacji. Brakuje dodatkowych sposobów zabezpieczenia modeli i dostosowania do ich API. Wykorzystany niewielki podzbiór, ze względu na ograniczenie zasobów. Brak testów na bezpiecznych promptów dla porównania.
 
 ## Źródła
 
-- [Nazwa źródła](URL) — krótki opis
+- [guychuk/open-prompt-injection (Hugging Face Datasets)](https://huggingface.co/datasets/guychuk/open-prompt-injection) — główny dataset użyty do testów prompt injection (split train, lokalnie cache'owany do `data/train.parquet`).
