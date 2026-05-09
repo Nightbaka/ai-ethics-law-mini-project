@@ -84,7 +84,7 @@ class TransformersLocalAdapter:
         tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
         model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
-            device_map="auto",
+            device_map={"": 0},
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             quantization_config=quantization_config,
         )

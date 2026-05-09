@@ -82,7 +82,7 @@ class LocalLLMJudge(LLMJudge):
         self._tokenizer = AutoTokenizer.from_pretrained(self.model_name, use_fast=True)
         self._model = AutoModelForCausalLM.from_pretrained(
             self.model_name,
-            device_map="auto",
+            device_map={"": 0},
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             quantization_config=quantization_config,
         )

@@ -74,6 +74,9 @@ uv run src/run_prompt_injection.py --limit 20 --model-kind transformers --model-
 
 # mocniejszy model lokalny po weryfikacji pamięci
 uv run src/run_prompt_injection.py --limit 20 --model-kind transformers --model-preset mistral-7b --load-in-4bit --local-cache data/train.parquet
+
+# testy na wszystkich modelach i konfiguracjach (może zająć dużo czasu)
+uv run src/run_exp.py
 ```
 
 ## Wyniki

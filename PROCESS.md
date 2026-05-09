@@ -13,7 +13,7 @@ Ten plik dokumentuje **jak** pracowałem/am nad mini-projektem — jakie narzęd
 | Narzędzie | Do czego używałem |
 |-----------|-------------------|
 | GitHub Copilot | Implementacja większości kodu |
-| Gemini | Skrypt testowy |
+| Gemini | Skrypt testowy, analiza wyników |
 
 ## Prompty
 
@@ -45,7 +45,14 @@ Sedzia ma używać lokalnego modelu, nie anthropic. Domyślnie niech używa llm 
 Write a script that will run the tests, limit = 5, on all 4 models. Use gemma model as a judge. Test scenarios with arguments --no-defensive-system and without, turning on and off sanitization and heuristic defense - each strategy should be tested separately.
 ```
 
-**Kontekst:** Chciałem przyspieszyć pisanie skryptu testowego, 
+**Kontekst:** Chciałem przyspieszyć pisanie skryptu testowego
+
+### Analiza wyników
+```
+Write couple of jupyter notebook cells analyzing results(do not execute, I will copy them over). Do a mix of tables, plots. Think about what metrics could be calculated. .csv with results per run has these columns: '''example_id,prompt,label,attack_type,ground_truth_attack,model_name,system_prompt,sanitized_prompt,response,judge_classification,judge_reasoning,response_length,heuristic_injection_hits,heuristic_command_hits,heuristic_pii_hits,effective_classification,effective_reasoning'''
+```
+
+**Kontekst:** Chciałem szybko zobaczyć jakie metryki można wyciągnąć z wyników i jakie wizualizacje mogą być pomocne w analizie.
 
 ## Decyzje
 
@@ -75,4 +82,4 @@ Write a script that will run the tests, limit = 5, on all 4 models. Use gemma mo
    - Rezultat: CSV zawiera judge_classification + judge_reasoning zamiast flag heurystycznych
    - Ostateczna: Działająca aplikacja z 11 testami passującymi, benchmark na 100 przykładach
 
-3. **v3** — Dodanie stratifikacji ataków, dodatkowych modeli lokalnych (Mistral, Gemma), flagi konfiguracyjne do testów (sanityzacja, system prompt, heurystyki). Dodanie skryptu do testów.
+3. **v3** — Dodanie stratyfikacji ataków, dodatkowych modeli lokalnych (Mistral, Gemma), flagi konfiguracyjne do testów (sanityzacja, system prompt, heurystyki). Dodanie skryptu do testów.

@@ -1,14 +1,15 @@
 import subprocess
 import sys
 import os
+import torch
 
 # --- Configuration ---
-LIMIT = 5
-JUDGE_MODEL = "google/gemma-4-E2B-it"
+LIMIT = 2
+JUDGE_MODEL = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 BASE_OUT_DIR = "wyniki/prompt_injection_eval"
 
 # The 4 distinct models to test
-MODELS = ["tinyllama", "qwen3-1-7b", "mistral-7b", "gemma-4b"]
+MODELS = ["tinyllama", "gemma-4b", "qwen3-1-7b", "mistral-7b"]
 
 # Define the isolated testing strategies
 # Keys are folder names, values are lists of CLI flags
@@ -31,12 +32,12 @@ def main():
     for model in MODELS:
         for strategy_name, flags in STRATEGIES.items():
             out_dir = os.path.join(BASE_OUT_DIR, model, strategy_name)
-            
+            torch.cuda.empty_cache()  # Clear GPU memory before each run
             print(f"\n[>>] Running Model: {model} | Strategy: {strategy_name}")
             
             # Build the base command using the current Python executable
             cmd = [
-                sys.executable, "run_prompt_injection.py",
+                sys.executable, "src/run_prompt_injection.py",
                 "--limit", str(LIMIT),
                 "--model-preset", model,
                 "--judge-model", JUDGE_MODEL,
@@ -44,6 +45,8 @@ def main():
                 "--output-dir", out_dir,
                 "--write-summary"
             ]
+            if "mistral" in model or "gemma" in model:
+                cmd.append("--load-in-4bit")
             
             # Append the specific strategy flags
             cmd.extend(flags)
